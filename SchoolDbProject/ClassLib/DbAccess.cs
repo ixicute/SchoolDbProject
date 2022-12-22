@@ -673,7 +673,7 @@ namespace SchoolDbProject.ClassLib
 
             if (success == true)
             {
-                Console.WriteLine("En ny lärare har skapats!");
+                Console.WriteLine("En ny personal har skapats!");
                 Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
                 Console.ReadKey();
             }
