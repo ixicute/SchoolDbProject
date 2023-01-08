@@ -14,6 +14,7 @@ namespace SchoolDbProject.Models
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
         public int FkTitleId { get; set; }
+        public DateTime StartDate { get; set; }
 
         public virtual Title FkTitle { get; set; } = null!;
         public virtual ICollection<Course> Courses { get; set; }

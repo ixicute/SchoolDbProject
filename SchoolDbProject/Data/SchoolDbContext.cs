@@ -30,7 +30,7 @@ namespace SchoolDbProject.Data
             if (!optionsBuilder.IsConfigured)
             {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                optionsBuilder.UseSqlServer("Data Source=ALDOR007; Initial Catalog = SchoolDb; Integrated Security=true");
+                optionsBuilder.UseSqlServer("Data Source = ALDOR007; Initial Catalog = SchoolDb; Integrated Security=true");
             }
         }
 
@@ -67,6 +67,8 @@ namespace SchoolDbProject.Data
                 entity.Property(e => e.FkTitleId).HasColumnName("FK_TitleId");
 
                 entity.Property(e => e.LastName).HasMaxLength(50);
+
+                entity.Property(e => e.StartDate).HasColumnType("date");
 
                 entity.HasOne(d => d.FkTitle)
                     .WithMany(p => p.Employees)
@@ -146,6 +148,8 @@ namespace SchoolDbProject.Data
             modelBuilder.Entity<Title>(entity =>
             {
                 entity.ToTable("Title");
+
+                entity.Property(e => e.Salary).HasColumnType("decimal(8, 2)");
 
                 entity.Property(e => e.TitleName).HasMaxLength(50);
             });

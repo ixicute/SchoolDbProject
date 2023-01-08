@@ -12,6 +12,7 @@ namespace SchoolDbProject.Models
 
         public int Id { get; set; }
         public string TitleName { get; set; } = null!;
+        public decimal? Salary { get; set; }
 
         public virtual ICollection<Employee> Employees { get; set; }
     }

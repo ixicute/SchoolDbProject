@@ -110,8 +110,8 @@ namespace SchoolDbProject.ClassLib
             //Menu returns an int based on the chosen option
             int selectedIndex = EmpMenu.PrintMenu();
 
-            string sqlCommand = "SELECT Employee.FirstName, Employee.LastName, Title.TitleName FROM Employee " +
-                             "Join Title ON Title.Id = FK_TitleId ";
+            string sqlCommand = "SELECT Employee.FirstName, Employee.LastName, Title.TitleName, Title.Salary, DATEDIFF(year, StartDate, GETDATE()) AS YearsWorked FROM Employee " +
+                                "Join Title ON Title.Id = FK_TitleId ";
 
             //The returned int is used to pick the 'where'-clause for the sql command.
             switch (selectedIndex)
@@ -142,15 +142,15 @@ namespace SchoolDbProject.ClassLib
             Console.Clear();
             Console.BackgroundColor = ConsoleColor.Black;
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("|{0, -15} | {1, -15} | {2, -15}|", "Förnamn", "Efternamn", "Titel");
-            Console.WriteLine(" {0}", new string('-', 51));
+            Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12}|", "Förnamn", "Efternamn", "Titel", "Lön", "År I Arbete");
+            Console.WriteLine(" {0}", new string('-', 78));
             Console.ResetColor();
             foreach (DataRow dr in dataTable.Rows)
             {
                 //Formatted strings as tables
-                Console.WriteLine("|{0, -15} | {1, -15} | {2, -15}|", dr["FirstName"], dr["LastName"], dr["TitleName"]);
+                Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12}|", dr["FirstName"], dr["LastName"], dr["TitleName"], dr["Salary"], dr["YearsWorked"]);
             }
-            Console.WriteLine(" {0}", new string('-', 51));
+            Console.WriteLine(" {0}", new string('-', 78));
             Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
             Console.ReadKey();
             EmployeesSql();
@@ -648,8 +648,8 @@ namespace SchoolDbProject.ClassLib
                 }
             }
 
-            Menu classesMenu = new Menu(pickTitlePrompt, titleOption);
-            chosenTitle = classesMenu.PrintMenu();
+            Menu titlesMenu = new Menu(pickTitlePrompt, titleOption);
+            chosenTitle = titlesMenu.PrintMenu();
 
             if (chosenTitle == (titleOption.Count - 1))
             {
@@ -660,6 +660,7 @@ namespace SchoolDbProject.ClassLib
             emp.FirstName = firstName;
             emp.LastName = lastName;
             emp.FkTitleId = chosenTitle+1;
+
             try
             {
                 schoolDb.Employees.Add(emp);
