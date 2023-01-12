@@ -1101,6 +1101,7 @@ namespace SchoolDbProject.ClassLib
                 Console.WriteLine("\n\t\tBetyget är nu satt!\n");
                 Console.ResetColor();
                 Thread.Sleep(2000);
+                MainMenu();
             }
             else if (success == 0)
             {
@@ -1110,6 +1111,7 @@ namespace SchoolDbProject.ClassLib
                 Console.WriteLine("\n\t\tMisslyckades.. Försök igen senare.\n");
                 Console.ResetColor();
                 Thread.Sleep(2000);
+                MainMenu();
             }
         } //Added for Lab-4 (Transaction in code)
 
