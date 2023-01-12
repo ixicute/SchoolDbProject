@@ -19,6 +19,7 @@ namespace SchoolDbProject.Data
 
         public virtual DbSet<Class> Classes { get; set; } = null!;
         public virtual DbSet<Course> Courses { get; set; } = null!;
+        public virtual DbSet<Department> Departments { get; set; } = null!;
         public virtual DbSet<Employee> Employees { get; set; } = null!;
         public virtual DbSet<Grade> Grades { get; set; } = null!;
         public virtual DbSet<RelationShip> RelationShips { get; set; } = null!;
@@ -47,6 +48,10 @@ namespace SchoolDbProject.Data
             {
                 entity.ToTable("Course");
 
+                entity.Property(e => e.ActiveStatus)
+                    .HasMaxLength(15)
+                    .IsFixedLength();
+
                 entity.Property(e => e.CourseName).HasMaxLength(50);
 
                 entity.Property(e => e.FkEmployeeId).HasColumnName("FK_EmployeeId");
@@ -58,17 +63,38 @@ namespace SchoolDbProject.Data
                     .HasConstraintName("FK__Course__FK_Emplo__34C8D9D1");
             });
 
+            modelBuilder.Entity<Department>(entity =>
+            {
+                entity.ToTable("Department");
+
+                entity.Property(e => e.DepartmentName)
+                    .HasMaxLength(30)
+                    .HasColumnName("Department_Name")
+                    .IsFixedLength();
+            });
+
             modelBuilder.Entity<Employee>(entity =>
             {
                 entity.ToTable("Employee");
 
                 entity.Property(e => e.FirstName).HasMaxLength(50);
 
+                entity.Property(e => e.FkDepartment).HasColumnName("FK_Department");
+
                 entity.Property(e => e.FkTitleId).HasColumnName("FK_TitleId");
 
                 entity.Property(e => e.LastName).HasMaxLength(50);
 
+                entity.Property(e => e.Password).HasMaxLength(35);
+
+                entity.Property(e => e.Salary).HasColumnType("decimal(8, 2)");
+
                 entity.Property(e => e.StartDate).HasColumnType("date");
+
+                entity.HasOne(d => d.FkDepartmentNavigation)
+                    .WithMany(p => p.Employees)
+                    .HasForeignKey(d => d.FkDepartment)
+                    .HasConstraintName("FK_Employee_Department");
 
                 entity.HasOne(d => d.FkTitle)
                     .WithMany(p => p.Employees)
@@ -148,8 +174,6 @@ namespace SchoolDbProject.Data
             modelBuilder.Entity<Title>(entity =>
             {
                 entity.ToTable("Title");
-
-                entity.Property(e => e.Salary).HasColumnType("decimal(8, 2)");
 
                 entity.Property(e => e.TitleName).HasMaxLength(50);
             });

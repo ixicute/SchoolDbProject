@@ -9,24 +9,70 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
+using Figgle;
+using System.Globalization;
 
 namespace SchoolDbProject.ClassLib
 {
     internal class DbAccess
     {
+        private User loggedinUser;
+
         //This is the context used to  communicate with the database.
         private SchoolDbContext schoolDb = new SchoolDbContext();
         
         //Connection string. Edit "data source" to match server name and initial catalog to match database name.
         private SqlConnection sqlcon = new SqlConnection(@"Data Source = ALDOR007; Initial Catalog=SchoolDb; Integrated Security= true");
 
+        //Holds all users added through the InitiateUser method.
+        private List<User> userList = new List<User>();
+
         /// <summary>
-        /// Sets title for the application and runs Main-Menu of the program.
+        /// Initiate users and adds them to a list of USER.
+        /// Id, Username, password and boolean for if admin or not.
+        /// </summary>
+        public void InitiateUser()
+        {
+            var loginData =
+                (
+                    from u in schoolDb.Employees
+                    select new
+                    {
+                        ID = u.Id,
+                        Username = u.FirstName + " " + u.LastName,
+                        Password = u.Password,
+                        isAdmin = u.FkTitleId
+                    }
+                ).ToList();
+
+            //Janitor (title = 3) won't be added to the user list because they should not have access.
+            // Following titles are referenced: 1 = teacher, 2 = principle, 4 = admin
+            foreach (var user in loginData)
+            {
+                if (user.isAdmin <= 2)
+                {
+                    userList.Add(new User(user.ID, user.Username, user.Password, false));
+                }
+
+                else if (user.isAdmin == 4)
+                {
+                    userList.Add(new Admin(user.ID, user.Username, user.Password, true));
+                }
+            }
+        } //Added for LAB-4
+
+        /// <summary>
+        /// Runs Main-Menu of the program after login-check.
         /// </summary>
         public void Run()
-        {
-            Console.Title = "School Database - 2022";
-            MainMenu();            
+        {            
+            bool isLoginValid = LogIn();
+
+            if (isLoginValid == true)
+            {
+                MainMenu();
+            }
+            
         }
 
         /// <summary>
@@ -34,57 +80,127 @@ namespace SchoolDbProject.ClassLib
         /// </summary>
         private void MainMenu()
         {
+            Console.Clear();
             //This string will hold the message on the top of the screen.
-            string prompt = "Connected to School database - Successful\n" +
-                            "(Use arrows to cycle through options and press enter to select it.)";
+            string prompt = $"Inloggad som [{loggedinUser.UserName}]\n";
 
-            //This string array holds all the menu options. Edit this to change the content of the menu.
-            List<string> options = new List<string>() 
-            { "Hämta personal", //Done
-              "Hämta alla elever", //Done
-              "Hämta klass-info", //Done
-              "Hämta betyg från senaste månaden", 
-              "Visa snittbetyg för alla kurser (Med högsta & lägsta betyget",
-              "Lägg till ny elev",
-              "Lägg till ny personal",
-              "Avsluta"
-            };
-
-            Menu mainMenu = new Menu(prompt, options);
-
-            //Runs the method and saves the returned value to be used in the switch-case menu below.
-            int selectedIndex = mainMenu.PrintMenu();
-
-            //Menu for selection.
-            switch (selectedIndex)
+            if (loggedinUser.IsAdmin == true)
             {
-                case 0:
-                    EmployeesSql();
-                    break;
-                case 1:
-                    ViewStudentsEntity();
-                    break;
-                case 2:
-                    StudentsByClassEntity();
-                    break;
-                case 3:
-                    GetLatestGrade();                    
-                    break;
-                case 4:
-                    GetCourseGradeAverageSql();
-                    break;
-                case 5:
-                    InsertStudentSql();
-                    break;
-                case 6:
-                    InsertEmployeeEntity();
-                    break;
-                case 7:
-                    Exit();
-                    break;
+                //This string array holds all the menu options. Edit this to change the content of the menu.
+                List<string> options = new List<string>()
+                {
+                    "Sök upp student med ID", //Done
+                    "Lägg till ny elev", //Done
+                    "Lägg till ny personal", //Done
+                    "Visa avdelningsstatus",
+                    "Visa avdelningarnas månatlig kostnad",
+                    "Visa avdelningarnas snittkostnad",
+                    "Visa personal",
+                    "Logga ut",
+                    "Avsluta"
+                };
+
+                Menu mainMenu = new Menu(prompt, options);
+
+                //Runs the method and saves the returned value to be used in the switch-case menu below.
+                int selectedIndex = mainMenu.PrintMenu();
+
+                //Menu for selection.
+                switch (selectedIndex)
+                {
+                    case 0:                        
+                        ViewStudentByIdEntity();
+                        break;
+                    case 1:                        
+                        InsertStudentSql();
+                        break;
+                    case 2:                        
+                        InsertEmployeeEntity();
+                        break;
+                    case 3:                        
+                        DepartmentsEntity();
+                        break;
+                    case 4:                        
+                        DptTotalMonthlyCostSql();
+                        break;
+                    case 5:                        
+                        DptAverageCostSql();
+                        break;
+                    case 6:
+                        EmployeesSql();
+                        break;
+                    case 7:
+                        Console.Clear();
+                        Console.WriteLine("Du loggas ut...");
+                        Thread.Sleep(1000);
+                        Console.Clear();
+                        Run();
+                        break;
+                    case 8:
+                        Exit();
+                        break;
+                }
             }
 
-            //Just in case, program exits if menu is skipped.
+            else if(loggedinUser.IsAdmin == false)
+            {
+                //This string array holds all the menu options. Edit this to change the content of the menu.
+                List<string> options = new List<string>()
+                {
+                    "Hämta alla elever", //Done
+                    "Hämta klass-info", //Done
+                    "Hämta betyg från senaste månaden",
+                    "Visa snittbetyg för alla kurser",
+                    "Sätt betyg",
+                    "Visa aktiva kurser",
+                    "Sök upp student med ID",
+                    "Logga ut",
+                    "Avsluta"
+                };
+
+                Menu mainMenu = new Menu(prompt, options);
+
+                //Runs the method and saves the returned value to be used in the switch-case menu below.
+                int selectedIndex = mainMenu.PrintMenu();
+
+                //Menu for selection.
+                switch (selectedIndex)
+                {
+                    case 0:                        
+                        ViewStudentsEntity();
+                        break;
+                    case 1:                        
+                        StudentsByClassEntity();
+                        break;
+                    case 2:                        
+                        GetLatestGrade();
+                        break;
+                    case 3:                        
+                        GetCourseGradeAverageSql();
+                        break;
+                    case 4:                        
+                        SetGradeSql();
+                        break;
+                    case 5:                        
+                        ActiveCoursesEntity();
+                        break;
+                    case 6:                        
+                        ViewStudentByIdEntity();
+                        break;
+                    case 7:
+                        Console.Clear();
+                        Console.WriteLine("Du loggas ut...");
+                        Thread.Sleep(1000);
+                        Console.Clear();
+                        Run();
+                        break;
+                    case 8:
+                        Exit();
+                        break;
+                }
+            }
+
+            //Program exits in case it somehow skips menus.
             Environment.Exit(0);
         }
 
@@ -102,6 +218,7 @@ namespace SchoolDbProject.ClassLib
                 "Teacher",
                 "Principal",
                 "Janitor",
+                "Admin",
                 "Tillbaka"
             };
 
@@ -110,7 +227,9 @@ namespace SchoolDbProject.ClassLib
             //Menu returns an int based on the chosen option
             int selectedIndex = EmpMenu.PrintMenu();
 
-            string sqlCommand = "SELECT Employee.FirstName, Employee.LastName, Title.TitleName, Title.Salary, DATEDIFF(year, StartDate, GETDATE()) AS YearsWorked FROM Employee " +
+            string sqlCommand = "SELECT Employee.FirstName, Employee.LastName, Title.TitleName, " +
+                                "DATEDIFF(year, StartDate, GETDATE()) AS YearsWorked, Employee.Salary, Employee.StartDate" +
+                                " FROM Employee " +
                                 "Join Title ON Title.Id = FK_TitleId ";
 
             //The returned int is used to pick the 'where'-clause for the sql command.
@@ -129,6 +248,9 @@ namespace SchoolDbProject.ClassLib
                     sqlCommand += "WHERE Title.TitleName = 'Janitor'";
                     break;
                 case 4:
+                    sqlCommand += "Where Title.TitleName = 'Admin'";
+                    break;
+                case 5:
                     MainMenu();
                     break;
             }
@@ -141,16 +263,26 @@ namespace SchoolDbProject.ClassLib
 
             Console.Clear();
             Console.BackgroundColor = ConsoleColor.Black;
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12}|", "Förnamn", "Efternamn", "Titel", "Lön", "År I Arbete");
-            Console.WriteLine(" {0}", new string('-', 78));
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n\t\t\t\t\tLista över alla anställda\n");
             Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12} | {5, -17}|", 
+                              "Förnamn", "Efternamn", "Titel", "Lön", "År I Arbete", "Anställningsdatum");
+            Console.WriteLine(" {0}", new string('-', 99));
+            Console.ResetColor();
+
             foreach (DataRow dr in dataTable.Rows)
             {
                 //Formatted strings as tables
-                Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12}|", dr["FirstName"], dr["LastName"], dr["TitleName"], dr["Salary"], dr["YearsWorked"]);
+                Console.WriteLine("|{0, -15} | {1, -15} | {2, -15} | {3, -9} | {4, -12} | {5, -17}|",
+                                  dr["FirstName"], dr["LastName"], dr["TitleName"], dr["Salary"], dr["YearsWorked"],
+                                  Convert.ToDateTime(dr["StartDate"].ToString()).ToString("yyyy-MM-dd"));
             }
-            Console.WriteLine(" {0}", new string('-', 78));
+
+            Console.WriteLine(" {0}", new string('-', 99));
             Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
             Console.ReadKey();
             EmployeesSql();
@@ -204,15 +336,15 @@ namespace SchoolDbProject.ClassLib
             Console.Clear();
             Console.BackgroundColor = ConsoleColor.Black;
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("|{0, -15} | {1, -15} | {2, -15}|", "Förnamn", "Efternamn", "Personnummer");            
-            Console.WriteLine(" {0}", new string('-', 51));
+            Console.WriteLine("|{0, -4} | {1, -15} | {2, -15} | {3, -15}|","ID", "Förnamn", "Efternamn", "Personnummer");            
+            Console.WriteLine(" {0}", new string('-', 58));
             Console.ResetColor();
 
             foreach (Student student in sorted)
             {
-                Console.WriteLine("|{0, -15} | {1, -15} | {2, -15}|", student.FirstName, student.LastName, student.SsNumber);                
+                Console.WriteLine("|{0, -4} | {1, -15} | {2, -15} | {3, -15}|",student.Id, student.FirstName, student.LastName, student.SsNumber);
             }
-            Console.WriteLine(" {0}", new string('-', 51));
+            Console.WriteLine(" {0}", new string('-', 58));
             Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
             Console.ReadKey();
             ViewStudentsEntity();
@@ -523,13 +655,18 @@ namespace SchoolDbProject.ClassLib
             
             while (true)
             {
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine("skriv talet på klassen som eleven ska hamna i: ");
+                Console.ResetColor();
+
                 for (int i = 0; i < classList.Count; i++)
                 {
-                    Console.WriteLine("{0}- {1}", i + 1, classList[i]);
+                    Console.WriteLine("[{0}]. {1}", i + 1, classList[i]);
                 }
 
                 bool temp = int.TryParse(Console.ReadLine(), out classChosen);
+
                 if (classChosen > 0 && classChosen <= classList.Count)
                 {
                     break;
@@ -539,9 +676,9 @@ namespace SchoolDbProject.ClassLib
                     Console.WriteLine("Du skrev fel värde. Försök igen!");
                 }
             }
-                        
+
             sqlCommand += $"VALUES (\'{firstName.Trim()}\', \'{lastName.Trim()}\', \'{ss_Number.Trim()}\', {classChosen})";
-            SqlDataAdapter sqlData = new SqlDataAdapter(sqlCommand, sqlcon);
+
             try
             {
                 sqlcon.Open();
@@ -552,10 +689,13 @@ namespace SchoolDbProject.ClassLib
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
-            }            
+            }
 
             if (success <= 1)
             {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Studenten har lagts till i databasen!");
                 Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
                 Console.ReadKey();
@@ -564,9 +704,13 @@ namespace SchoolDbProject.ClassLib
 
             else
             {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("Inga nya studenter har lagts till.");
                 Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
                 Console.ReadKey();
+                MainMenu();
             }
         }
 
@@ -578,19 +722,35 @@ namespace SchoolDbProject.ClassLib
             Console.Clear();
             bool success = false;
             List<string> titleOption = new List<string>();
+            List<string> deptOptions = new List<string>();
+            string pickTitlePrompt = "Välj vilken titel nya personalen ska få: ";
+            string pickDeptPrompt = "Välj avdelning för personalen att jobba i: ";
+            var titles = from c in schoolDb.Titles select c;
+            var depts = from d in schoolDb.Departments select d;
+            int chosenTitle = 0;
+            int chosenDept = 0;
             string firstName = "";
             string lastName = "";
-            int chosenTitle = 0;
-            string pickTitlePrompt = "Välj vilken titel nya personalen ska få: ";
-            var titles = from c in schoolDb.Titles select c;
+            decimal salary = 0M;            
 
             foreach (Title title in titles)
             {
                 titleOption.Add(title.TitleName);
             }
-            titleOption.Add("Tillbaka");
+            titleOption.Add("Avbryt");
 
+            foreach (Department dept in depts)
+            {
+                deptOptions.Add(dept.DepartmentName);
+            }
+
+            deptOptions.Add("Avbryt");
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Fyll i följande fält för nya personalen: (skriv \"exit\" för att avbryta) ");
+            Console.ResetColor();
+
             while (true)
             {
                 Console.BackgroundColor = ConsoleColor.Black;
@@ -602,9 +762,11 @@ namespace SchoolDbProject.ClassLib
                 if (firstName.ToLower() == "exit")
                 {
                     Console.Clear();
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Återvänder till huvudmenyn...");
-                    Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
-                    Console.ReadKey();
+                    Console.ResetColor();
+                    Thread.Sleep(1000);
                     MainMenu();
                 }
                 else if (!string.IsNullOrEmpty(firstName) && firstName.Length <= 30)
@@ -648,18 +810,49 @@ namespace SchoolDbProject.ClassLib
                 }
             }
 
+            while (true)
+            {
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Lön: (t.ex 25000) ");
+                Console.ResetColor();
+
+                decimal.TryParse(Console.ReadLine(), out salary);
+                
+                if (salary >= 0)
+                {
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Du skrev fel värde. Försök igen!");                    
+                }
+            }
+
             Menu titlesMenu = new Menu(pickTitlePrompt, titleOption);
             chosenTitle = titlesMenu.PrintMenu();
 
             if (chosenTitle == (titleOption.Count - 1))
             {
-                InsertEmployeeEntity();
+                MainMenu();
+            }
+
+            Menu deptMenu = new Menu(pickDeptPrompt, deptOptions);
+            chosenDept = deptMenu.PrintMenu();
+
+            if (chosenDept == (deptOptions.Count - 1))
+            {
+                MainMenu();
             }
 
             Employee emp = new Employee();
             emp.FirstName = firstName;
             emp.LastName = lastName;
             emp.FkTitleId = chosenTitle+1;
+            emp.Salary = salary;
+            emp.FkDepartment = chosenDept+1;
+            emp.StartDate = DateTime.Now;
+            
 
             try
             {
@@ -678,6 +871,7 @@ namespace SchoolDbProject.ClassLib
                 Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
                 Console.ReadKey();
             }
+
             else
             {
                 Console.WriteLine("Något gick fel. Försök igen senare.");
@@ -685,6 +879,601 @@ namespace SchoolDbProject.ClassLib
                 Console.ReadKey();
             }
             MainMenu();
+        } //Updated LAB-4
+
+        /// <summary>
+        /// Sets the grade of a student
+        /// </summary>
+        public void SetGradeSql()
+        {
+            int studentId = 0;
+            int courseId = 0;
+            int gradeId = 0;
+            int success = 0;
+            List<int> idList = new List<int>();
+
+            string sqlStudents = "SELECT Student.Id, Student.FirstName, Student.LastName, Student.SS_Number FROM Student ";
+
+            string sqlNoGradeCourses = "SELECT Course.Id, Course.CourseName FROM RelationShip " +
+                                       "JOIN Course ON FK_CourseId = Course.Id " +
+                                       "JOIN Student ON FK_StudentId = Student.Id ";
+
+            string sqlGrade = "SELECT Grade.Id, Grade.GradeLevel FROM Grade";
+
+            //Getting student data to choose student based on ID - START
+            SqlDataAdapter sqlData = new SqlDataAdapter(sqlStudents, sqlcon);
+
+            DataTable dataTable = new DataTable();
+
+            sqlData.Fill(dataTable);
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n\t\tLista över alla studenter\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -4} | {1, -15} | {2, -15}| {3, -15} |",
+                              "ID", "Förnamn", "Efternamn", "Personnummer");
+
+            Console.WriteLine(" {0}", new string('-', 60));
+            Console.ResetColor();
+            foreach (DataRow dr in dataTable.Rows)
+            {
+                //Formatted strings as tables
+                Console.WriteLine("|{0, -4} | {1, -15} | {2, -15} | {3, -15} |",
+                                  dr["Id"], dr["FirstName"], dr["LastName"], dr["SS_Number"]);                
+            }
+            Console.WriteLine(" {0}", new string('-', 60));
+
+            while (true)
+            {
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Välj student ID: ");
+                Console.ResetColor();
+
+                int.TryParse(Console.ReadLine(), out studentId);
+
+                if (studentId > 0 && studentId <= dataTable.Rows.Count)
+                {
+                    sqlNoGradeCourses += $"WHERE Student.Id = {studentId} AND FK_GradeId IS NULL";
+                    break;
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Du skrev fel värde. Försök igen!");
+                    Console.ResetColor();
+                }
+            }
+            //Getting student data to choose student based on ID - END
+
+
+            //Getting Courses data where student has no grades yet - START
+            SqlDataAdapter sqlCourses = new SqlDataAdapter(sqlNoGradeCourses, sqlcon);            
+
+            DataTable noGradeCourses = new DataTable();
+
+            sqlCourses.Fill(noGradeCourses);
+
+            //If any courses with null value is found for the specified student
+            if (noGradeCourses.Rows.Count != 0)
+            {
+                while (true)
+                {
+                    Console.Clear();
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\n\t\tFöljande kurser saknar betyg:\n");
+                    Console.ResetColor();
+
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine("|{0, -5} | {1, -25}|",
+                                      "ID", "Course Name");
+
+                    Console.WriteLine(" {0}", new string('-', 60));
+                    Console.ResetColor();
+
+                    idList.Clear();
+
+                    foreach (DataRow dr in noGradeCourses.Rows)
+                    {                        
+                        string temp = dr["Id"].ToString();
+                        idList.Add(int.Parse(temp));
+
+                        Console.WriteLine("|{0, -5} | {1, -25}|",
+                                          dr["Id"], dr["CourseName"]);
+                    }
+                    Console.WriteLine(" {0}", new string('-', 60));
+
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine("Välj kursens ID: ");
+                    Console.ResetColor();
+
+                    int.TryParse(Console.ReadLine(), out courseId);
+
+                    if (courseId > 0 && idList.Contains(courseId))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        Console.Clear();
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Du skrev fel värde. Försök igen!");
+                        Console.ResetColor();
+                        Console.ReadKey();
+                    }
+                }
+            }
+
+            else
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Studenten har inga pågående kurser som saknar betyg.");
+                Console.ResetColor();
+                Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+                Console.ReadKey();
+                MainMenu();
+            }
+            //Getting Courses data where student has no grades yet - END
+
+
+            //Pick grade based on grade id - START
+            SqlDataAdapter gradeChoice = new SqlDataAdapter(sqlGrade, sqlcon);
+
+            DataTable gradesTable = new DataTable();
+
+            gradeChoice.Fill(gradesTable);
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n\t\tBetygssystem 2023:\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -4} | {1, -5} |",
+                              "ID", "Grade");
+
+            Console.WriteLine(" {0}", new string('-', 13));
+            Console.ResetColor();
+            foreach (DataRow dr in gradesTable.Rows)
+            {
+                //Formatted strings as tables
+                Console.WriteLine("|{0, -4} | {1, -5} |", dr["Id"], dr["GradeLevel"].ToString().Trim());
+            }
+            Console.WriteLine(" {0}", new string('-', 13));
+
+            while (true)
+            {
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Välj betyg ID som du vill sätta: ");
+                Console.ResetColor();
+
+                int.TryParse(Console.ReadLine(), out gradeId);
+
+                if (gradeId > 0 && gradeId <= gradesTable.Rows.Count)
+                {
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Du skrev fel värde. Försök igen!");
+                }
+            }
+            //Pick grade based on grade id - END
+
+            string updatecmd = "UPDATE RelationShip " +
+                               $"SET FK_GradeId = {gradeId}, SetDate = GETDATE(), FK_GradedByTeacherId = {1} " +
+                               $"WHERE FK_StudentId = {studentId} AND FK_CourseId = {courseId}";
+
+            try
+            {
+                sqlcon.Open();
+                SqlCommand cmd = new SqlCommand(updatecmd, sqlcon);
+                success = cmd.ExecuteNonQuery();
+                sqlcon.Close();                
+            }
+
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+
+            if (success >= 1)
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n\t\tBetyget är nu satt!\n");
+                Console.ResetColor();
+                Thread.Sleep(2000);
+            }
+            else if (success == 0)
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n\t\tMisslyckades.. Försök igen senare.\n");
+                Console.ResetColor();
+                Thread.Sleep(2000);
+            }
+        } //Added for Lab-4 (Transaction in code)
+
+        /// <summary>
+        /// Shows all departments available in the database.
+        /// </summary>
+        public void DepartmentsEntity()
+        {
+            var dep = 
+                (
+                    from d in schoolDb.Departments
+                    select new
+                    {
+                        id = d.Id,
+                        name = d.DepartmentName
+                    }
+                ).ToList();
+
+            var em = 
+                (
+                   from e in schoolDb.Employees
+                   select new
+                   {
+                        dep = e.FkDepartment,
+                        id = e.Id
+                   }
+                ).ToList();
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\nLista över alla avdelningar och antal anställda\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -10} | {1, -15}|", "Avdelning", "Anställda");
+            Console.WriteLine(" {0}", new string('-', 28));
+            Console.ResetColor();
+
+            foreach (var dept in dep)
+            {
+                Console.WriteLine("|{0, -10} | {1, -15}|", dept.name.Trim(), em.Count(x => x.dep == dept.id));
+            }
+            Console.WriteLine(" {0}", new string('-', 28));
+
+            Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+            Console.ReadKey();
+            MainMenu();
+        } //Added for Lab-4
+
+        /// <summary>
+        /// Shows all courses set as "active" in the database.
+        /// </summary>
+        public void ActiveCoursesEntity()
+        {
+            var status = from c in schoolDb.Courses
+                         where c.ActiveStatus == "Active"
+                         select c;
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\n    Lista över alla aktiva kurser\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -23} | {1, -10}|",
+                              "Course", "Status");
+
+            Console.WriteLine(" {0}", new string('-', 36));
+            Console.ResetColor();
+            foreach (var course in status)
+            {
+                //Formatted strings as tables
+                Console.WriteLine("|{0, -23} | {1, -10}|",
+                                  course.CourseName, course.ActiveStatus.Trim());
+            }
+            Console.WriteLine(" {0}", new string('-', 36));
+
+            Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+            Console.ReadKey();
+            MainMenu();
+        } //Added for Lab-4
+
+        /// <summary>
+        /// Shows the montly cost for each department in the database.
+        /// </summary>
+        public void DptTotalMonthlyCostSql()
+        {
+            string sqlCommand = "SELECT Department.Department_Name as \'Department Name\', SUM(Employee.Salary) as \'Monthly Cost\' FROM Employee " +
+                                "JOIN Department ON FK_Department = Department.Id " +
+                                "GROUP BY Department_Name";
+
+            SqlDataAdapter sqlData = new SqlDataAdapter(sqlCommand, sqlcon);
+
+            DataTable deptMonthCost = new DataTable();
+
+            sqlData.Fill(deptMonthCost);
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\nLista över månatliga kostnader för avdelningar\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -12} | {1, -17} |",
+                              "Avdelning", "Månatlig kostnad");
+
+            Console.WriteLine(" {0}", new string('-', 33));
+            Console.ResetColor();
+            foreach (DataRow dr in deptMonthCost.Rows)
+            {
+                //Formatted strings as tables
+                Console.WriteLine("|{0, -12} | {1, -17} |",
+                                  dr["Department Name"].ToString().Trim(), dr["Monthly Cost"].ToString().Trim());
+            }
+            Console.WriteLine(" {0}", new string('-', 33));
+
+            Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+            Console.ReadKey();
+            MainMenu();
+        } //Added for Lab-4
+
+        /// <summary>
+        /// Shows the average monthly cost of each department in the database.
+        /// </summary>
+        public void DptAverageCostSql()
+        {
+            string sqlCommand = "SELECT Department.Department_Name as \'Department Name\', AVG(Employee.Salary) as \'Salary Average\' FROM Employee " +
+                                "JOIN Department ON FK_Department = Department.Id " +
+                                "GROUP BY Department_Name";
+
+            SqlDataAdapter sqlData = new SqlDataAdapter(sqlCommand, sqlcon);
+
+            DataTable deptAvgCost = new DataTable();
+
+            sqlData.Fill(deptAvgCost);            
+
+            Console.Clear();
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\nLista över snittkostnader för avdelningar\n");
+            Console.ResetColor();
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("|{0, -12} | {1, -17} |",
+                              "Avdelning", "snittkostnad");
+
+            Console.WriteLine(" {0}", new string('-', 33));
+            Console.ResetColor();
+            foreach (DataRow dr in deptAvgCost.Rows)
+            {
+                //Formatted strings as tables
+                Console.WriteLine("|{0, -12} | {1, -17} |",
+                                  dr["Department Name"].ToString().Trim(), dr["Salary Average"].ToString().Trim());
+            }
+            Console.WriteLine(" {0}", new string('-', 33));
+
+            Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+            Console.ReadKey();
+            MainMenu();
+
+        } //Added for Lab-4
+
+        /// <summary>
+        /// Shows a list of available students and based on ID retrives relevant data.
+        /// </summary>
+        public void ViewStudentByIdEntity()
+        {
+            int studentId = 0;
+            var studs = from s in schoolDb.Students select s;
+            string studName = "";
+            string className = "";
+            List<int> studId = new List<int>();
+            DateTime datum;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n\tLista över alla elever\n");
+                Console.ResetColor();
+
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("|{0, -4} | {1, -15} | {2, -15}|", "ID", "Förnamn", "Efternamn");
+                Console.WriteLine(" {0}", new string('-', 40));
+                Console.ResetColor();
+
+                studId.Clear();
+
+                foreach (Student student in studs)
+                {
+                    studId.Add(student.Id);
+                    Console.WriteLine("|{0, -4} | {1, -15} | {2, -15}|", student.Id, student.FirstName, student.LastName);
+                }
+
+                Console.WriteLine(" {0}", new string('-', 40));
+
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("\nSkriv studentens ID: ");
+                Console.ResetColor();
+
+                int.TryParse(Console.ReadLine(), out studentId); //check if student id exists
+
+                if (studId.Contains(studentId))
+                {
+                    break;
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\nFel, försök igen...");
+                    Console.ResetColor();
+                    Console.WriteLine("Tryck på tangentbordet för att fortsätta");
+                    Console.ReadKey();
+                }
+            }
+
+
+            string sqlCommand = $"EXEC SP_GetStudent {studentId}";
+
+            SqlDataAdapter sqlData = new SqlDataAdapter(sqlCommand, sqlcon);
+
+            DataTable studentInfo = new DataTable();
+            
+            sqlData.Fill(studentInfo);
+
+            foreach (DataRow dr in studentInfo.Rows)
+            {
+                studName = dr["Student"].ToString();
+                className = dr["Class"].ToString();                
+            }
+
+            if (!string.IsNullOrEmpty(studName) || !string.IsNullOrEmpty(className))
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"\n\t\t\tVisar: [{studName}] - Class: [{className}]\n");
+                Console.ResetColor();
+
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("|{0, -25} | {1, -8} | {2, -15} | {3, -23}|", "Kurs", "Betyg", "Datum", "Ansvarig Lärare");
+                Console.WriteLine(" {0}", new string('-', 80));
+                Console.ResetColor();
+
+                foreach (DataRow dr in studentInfo.Rows)
+                {
+                    datum = (DateTime)dr["Datum"];
+
+                    Console.WriteLine("|{0, -25} | {1, -8} | {2, -15} | {3, -23}|",
+                                      dr["Course"].ToString().Trim(), dr["Grade"].ToString().Trim(), datum.ToString("yyyyMMdd"), dr["Teacher"].ToString().Trim());
+                }
+
+                Console.WriteLine(" {0}", new string('-', 80));
+                Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+                Console.ReadKey();
+                MainMenu();
+            }
+
+            else
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Vald elev saknar något data och kan inte visas. Kontakta en Admin.");
+                Console.ResetColor();
+                Console.WriteLine("Tryck på tangentbordet för att fortsätta...");
+                Console.ReadKey();
+                MainMenu();
+                
+            }
+        } //Added for Lab-4
+
+        /// <summary>
+        /// Login screen that checks in the list of initiated users.
+        /// </summary>
+        /// <returns></returns>
+        public bool LogIn()
+        {
+            int attemptsCheck = 0;
+            bool isValid = false;            
+
+            do
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(FiggleFonts.Kban.Render("Skolan Databas"));
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.WriteLine("Världens bästa Applikation \nLogga in nedan! \n");
+                Console.ResetColor();
+
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Skriv in användarnamn: ");
+                Console.ResetColor();
+
+                string uname = Console.ReadLine().ToLower();
+                
+
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Skriv in lösenord: ");
+                Console.ResetColor();
+
+                string pass = Console.ReadLine();
+
+                //Checks user list for matching entries to the user inputs.
+                User temp = userList.Find(x => x.UserName.ToLower() == uname && x.Password == pass);
+
+                if (userList.Contains(temp))
+                {
+                    loggedinUser = temp;
+                    isValid = true;
+
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write("Du loggas in...");
+                    Console.ResetColor();
+                    Thread.Sleep(800);
+
+                    break;
+                }
+
+                else
+                {
+                    Console.Clear();
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Fel Användarnamn eller Lösenord.\n" +
+                                      "Försök igen...");
+                    Console.ResetColor();
+                    Thread.Sleep(1000);
+                    Console.Clear();
+
+                    attemptsCheck++;
+                }
+
+            } while (attemptsCheck < 3);
+            
+            //If more than 3 attempts, application exits.
+            if (attemptsCheck >= 3)
+            {
+                Console.Clear();
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\nDu har skrivit fel information för många gånger.\n" +
+                                  "Programmet stängs.");
+                Console.ResetColor();
+
+                Environment.Exit(0);
+            }
+
+            return isValid;
         }
 
         /// <summary>

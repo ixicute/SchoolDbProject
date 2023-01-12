@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Figgle;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -27,6 +28,10 @@ namespace SchoolDbProject.ClassLib
         /// </summary>
         private void DisplayOptions()
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(FiggleFonts.Kban.Render("Skolan Databas"));
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.ResetColor();
             Console.WriteLine(prompt);
 
             for (int i = 0; i < optionss.Count; i++)

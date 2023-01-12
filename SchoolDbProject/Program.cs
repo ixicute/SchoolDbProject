@@ -7,8 +7,9 @@ namespace SchoolDbProject
     {
         static void Main(string[] args)
         {
-            DbAccess db = new DbAccess();
-
+            Console.Title = "School Database - 2022";
+            DbAccess db = new DbAccess();            
+            db.InitiateUser();
             db.Run();
         }
     }
